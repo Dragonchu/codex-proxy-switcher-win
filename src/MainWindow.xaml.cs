@@ -19,10 +19,18 @@ public partial class MainWindow : Window
     private async Task RefreshAsync()
     {
         SetBusy("正在检查…", "正在检查 Codex 和本地代理。");
-        settings = await settingsStore.LoadAsync();
-        if (settings is null) { ShowSettings(true); return; }
-        state = await launcherService.GetStateAsync(settings);
-        RenderState();
+        try
+        {
+            settings = await settingsStore.LoadAsync();
+            if (settings is null) { ShowSettings(true); return; }
+            state = await launcherService.GetStateAsync(settings);
+            RenderState();
+        }
+        catch (Exception ex)
+        {
+            state = LauncherState.NotFound($"启动检查失败：{ex.Message}");
+            RenderState();
+        }
     }
 
     private void RenderState()

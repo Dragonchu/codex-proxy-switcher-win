@@ -10,9 +10,9 @@ public sealed record LaunchError(string Code, string StackTrace)
     public static LaunchError FromException(Exception exception) => new("CPS-LAUNCH-001", exception.ToString());
 }
 
-public sealed record LauncherState(LauncherStateKind Kind, CodexInstallation? Installation = null, LaunchError? Error = null)
+public sealed record LauncherState(LauncherStateKind Kind, CodexInstallation? Installation = null, LaunchError? Error = null, string DiagnosticReason = "")
 {
-    public static LauncherState NotFound() => new(LauncherStateKind.CodexNotFound);
+    public static LauncherState NotFound(string diagnosticReason = "") => new(LauncherStateKind.CodexNotFound, DiagnosticReason: diagnosticReason);
     public static LauncherState Failed(CodexInstallation installation, LaunchError error) => new(LauncherStateKind.LaunchFailed, installation, error);
 }
 
@@ -23,8 +23,9 @@ public sealed class LauncherService
     public async Task<LauncherState> GetStateAsync(ProxySettings settings)
     {
         if (IsCodexRunning()) return new(LauncherStateKind.CodexRunning);
-        var installation = windows.FindCodex();
-        if (installation is null) return LauncherState.NotFound();
+        var discovery = windows.DiscoverCodex();
+        if (discovery.Status == CodexDiscoveryStatus.NotFound) return LauncherState.NotFound(discovery.DiagnosticReason);
+        var installation = discovery.Installation!;
         if (!await IsProxyReachableAsync(settings.Uri)) return new(LauncherStateKind.ProxyUnavailable, installation);
         return new(LauncherStateKind.Ready, installation);
     }

@@ -8,8 +8,7 @@ public partial class App : Application
     {
         DispatcherUnhandledException += (_, args) =>
         {
-            var error = LaunchError.FromException(args.Exception);
-            MessageBox.Show($"错误代码：{error.Code}\n\n{error.StackTrace}", "Codex Proxy Switcher", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("应用遇到未处理错误，请重新打开。", "Codex Proxy Switcher", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
         base.OnStartup(e);

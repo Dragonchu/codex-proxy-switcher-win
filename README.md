@@ -23,6 +23,7 @@
 
 - 通过 Windows 包标识 API 查找 Microsoft Store/MSIX 版 Codex，并通过 `IApplicationActivationManager` 激活。
 - 查找 `%LOCALAPPDATA%\Programs\Codex\Codex.exe` 形式的非打包安装。
+- Store/MSIX 查询、包清单解析和非打包回退彼此隔离；任一路径失败都会继续尝试下一路径。全部失败时正常显示“未找到 Codex”，不会让初始界面因发现异常而崩溃。
 - 启动前检查代理 TCP 端口是否可达。
 - 对非打包版 Codex，仅向新进程传递 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 和 `NO_PROXY`。
 - 如果 Codex 已运行，显示“Codex 正在运行。请退出 Codex 后再启动。”，不会结束、关闭或重启它。
@@ -59,7 +60,7 @@ dotnet run --project .\src\CodexProxySwitcher.csproj
 
 ## 错误报告
 
-意外启动失败时，窗口显示稳定错误代码 `CPS-LAUNCH-001` 和完整异常堆栈。提交 GitHub Issue 时请复制两者，并补充 Windows 版本、Codex 安装来源及复现步骤。堆栈可能包含本机路径，请在公开提交前自行检查敏感信息。
+用户点击“启动 Codex”后若发生无法恢复的启动错误，窗口显示稳定错误代码 `CPS-LAUNCH-001` 和完整异常堆栈。安装发现阶段的查询或解析失败会被隔离并降级为“未找到 Codex”，不会显示启动错误堆栈。提交 GitHub Issue 时请复制启动错误代码和堆栈，并补充 Windows 版本、Codex 安装来源及复现步骤。堆栈可能包含本机路径，请在公开提交前自行检查敏感信息。
 
 ## 贡献与许可证
 
