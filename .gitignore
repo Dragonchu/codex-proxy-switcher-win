@@ -9,8 +9,6 @@ release-v*/
 *.pdb
 *.zip
 *.exe
-!release/
-!release/Codex-Proxy-Switcher.exe
 .vs/
 .dotnet/
 .dotnet-home/

@@ -1,22 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>CodexProxySwitcher</AssemblyName>
     <RootNamespace>CodexProxySwitcher</RootNamespace>
-    <Product>Codex Proxy Switcher for Windows</Product>
-    <Authors>hloolx</Authors>
-    <Version>0.1.6</Version>
-    <RepositoryUrl>https://github.com/hloolx/codex-proxy-switcher-win</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/hloolx/codex-proxy-switcher-win</PackageProjectUrl>
-    <Description>A lightweight Windows launcher for starting Codex Desktop with optional proxy environment variables.</Description>
     <ApplicationIcon>assets\CodexProxySwitcher.ico</ApplicationIcon>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Version>1.0.0</Version>
+    <Authors>Dragonchu contributors</Authors>
+    <RepositoryUrl>https://github.com/Dragonchu/codex-proxy-switcher-win</RepositoryUrl>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Content Include="assets\CodexProxySwitcher.ico" />
-  </ItemGroup>
 </Project>

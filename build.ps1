@@ -1,44 +1,14 @@
-param(
-    [switch]$SelfContained
-)
+param([switch]$SelfContained)
 
 $ErrorActionPreference = "Stop"
+$projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectPath = Join-Path $projectRoot "src\CodexProxySwitcher.csproj"
+$outputPath = Join-Path $projectRoot "dist"
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$project = Join-Path $root "src\CodexProxySwitcher.csproj"
-$dist = Join-Path $root "dist"
+$arguments = @("publish", $projectPath, "-c", "Release", "-r", "win-x64", "-p:PublishSingleFile=true", "-o", $outputPath)
+if ($SelfContained) { $arguments += @("--self-contained", "true", "-p:EnableCompressionInSingleFile=true") }
+else { $arguments += @("--self-contained", "false") }
 
-New-Item -ItemType Directory -Force -Path $dist | Out-Null
-
-$publishArgs = @(
-    "publish",
-    $project,
-    "-c", "Release",
-    "-r", "win-x64",
-    "-p:PublishSingleFile=true",
-    "-p:IncludeNativeLibrariesForSelfExtract=true",
-    "-o", $dist
-)
-
-if ($SelfContained) {
-    $publishArgs += "--self-contained"
-    $publishArgs += "true"
-    $publishArgs += "-p:EnableCompressionInSingleFile=true"
-}
-else {
-    $publishArgs += "--self-contained"
-    $publishArgs += "false"
-}
-
-dotnet @publishArgs
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
-}
-
-$sourceExe = Join-Path $dist "CodexProxySwitcher.exe"
-$targetExe = Join-Path $dist "Codex-Proxy-Switcher.exe"
-if (Test-Path -LiteralPath $sourceExe) {
-    Copy-Item -LiteralPath $sourceExe -Destination $targetExe -Force
-}
-
-Write-Host "Build completed: $targetExe"
+dotnet @arguments
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Host "Build completed: $(Join-Path $outputPath 'CodexProxySwitcher.exe')"
