@@ -26,7 +26,7 @@ public interface IDiscoveryFileSystem
     string? ReadApplicationId(string packagePath);
 }
 
-public sealed class WindowsInterop
+public sealed class WindowsInterop : IPackagedAppActivator
 {
     public const uint PackageFilterHead = 0x00000010;
     private const string CodexPackageFamilyName = "OpenAI.Codex_2p2nqsd0c76g0";
@@ -76,13 +76,14 @@ public sealed class WindowsInterop
         return CodexDiscoveryResult.NotFound(JoinDiagnostics(diagnostics));
     }
 
-    public void ActivatePackagedApp(string appUserModelId)
+    public uint ActivatePackagedApp(string appUserModelId)
     {
         object instance = new ApplicationActivationManager();
         try
         {
-            var result = ((IApplicationActivationManager)instance).ActivateApplication(appUserModelId, null, ActivateOptions.None, out _);
+            var result = ((IApplicationActivationManager)instance).ActivateApplication(appUserModelId, null, ActivateOptions.None, out var processId);
             Marshal.ThrowExceptionForHR(result);
+            return processId;
         }
         finally { Marshal.FinalReleaseComObject(instance); }
     }

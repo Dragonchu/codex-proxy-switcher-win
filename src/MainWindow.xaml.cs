@@ -43,7 +43,9 @@ public partial class MainWindow : Window
         {
             case LauncherStateKind.Ready:
                 StatusText.Text = "已准备就绪";
-                DetailText.Text = $"本地代理 {settings!.ProxyUrl} 可用。";
+                DetailText.Text = state.Installation!.AppUserModelId is null
+                    ? $"本地代理 {settings!.ProxyUrl} 可用。"
+                    : $"本地代理 {settings!.ProxyUrl} 可用；将使用 Store 兼容启动。";
                 SetPrimary("启动 Codex", true);
                 break;
             case LauncherStateKind.CodexRunning:

@@ -21,19 +21,20 @@
 
 ## 支持的行为
 
-- 通过 Windows 包标识 API 查找 Microsoft Store/MSIX 版 Codex，并通过 `IApplicationActivationManager` 激活。
+- 通过 Windows 包标识 API 查找 Microsoft Store/MSIX 版 Codex，并使用兼容注入流程通过 `IApplicationActivationManager` 激活。
 - 查找 `%LOCALAPPDATA%\Programs\Codex\Codex.exe` 形式的非打包安装。
 - Store/MSIX 查询、包清单解析和非打包回退彼此隔离；任一路径失败都会继续尝试下一路径。全部失败时正常显示“未找到 Codex”，不会让初始界面因发现异常而崩溃。
 - 启动前检查代理 TCP 端口是否可达。
-- 对非打包版 Codex，仅向新进程传递 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 和 `NO_PROXY`。
+- Store/MSIX 兼容流程由跨进程命名互斥锁串行化：再次检查 Codex 与代理，快照当前进程和当前用户的大小写代理变量，临时写入、广播环境变化、激活并确认进程出现；成功后只保留固定 1.5 秒启动租约，随后恢复快照并再次广播。激活失败、取消或超时也会在 `finally` 路径恢复。
+- 对非打包版 Codex，仅向新进程的 `ProcessStartInfo` 传递大小写 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 和 `NO_PROXY`，不写用户级环境。
 - 如果 Codex 已运行，显示“Codex 正在运行。请退出 Codex 后再启动。”，不会结束、关闭或重启它。
-- 不修改 Windows 全局代理、注册表、用户级环境变量或系统级环境变量。
+- 不修改 Windows 全局代理或系统级环境变量，不直接读写注册表，不使用 PowerShell 作为生产启动路径。
 
 ## 已知限制
 
-Windows 的文档化商店应用激活 API 不提供为目标应用指定环境变量的参数。应用通过 AppUserModelID 激活时，启动器无法保证 Store/MSIX 版 Codex 继承 `HTTP_PROXY`、`HTTPS_PROXY` 或 `ALL_PROXY`。因此，对商店版安装，本工具可以检查本地代理并正常激活 Codex，但不能可靠地实现“仅给该商店应用注入代理”。是否使用代理取决于 Codex 自身、Windows 网络设置及代理软件的接管方式。
+Windows 的文档化商店应用激活 API 不提供为目标应用指定环境变量的参数。本工具采用的是兼容方案：在很短的激活窗口内，通过标准环境变量 API 临时修改当前用户变量并广播，再激活 Store/MSIX 应用。这不是 Windows 官方提供的应用级隔离注入，不能保证 Codex 一定读取这些变量，也无法阻止同一用户的其他新进程在租约期间看到临时值。
 
-本项目不会为了绕过该限制而临时修改用户环境变量、广播环境变化、直接执行受保护的 WindowsApps 可执行文件，或用 PowerShell 作为生产启动链路。若必须确保商店版 Codex 走代理，请使用代理软件提供的进程接管/TUN 功能，或使用 Codex 官方支持的代理配置（如未来提供）。
+正常执行中的成功、激活失败、取消和超时都会恢复所有变量的原值；恢复会逐项尝试，即使某一项失败也继续处理其余项。但是进程被强制终止、系统关机或断电时，`finally` 无法运行，因此无法作绝对恢复保证。启动器自身绝不会结束或强杀 Codex。若必须确保 Store/MSIX 版 Codex 走代理，请使用代理软件提供的进程接管/TUN 功能，或使用 Codex 官方支持的代理配置（如未来提供）。
 
 端口可达只表示本地服务正在监听，不代表代理能访问 OpenAI，也不验证代理协议、认证、TLS 或账号状态。
 
@@ -64,6 +65,6 @@ dotnet run --project .\src\CodexProxySwitcher.csproj
 
 ## 贡献与许可证
 
-欢迎提交 Issue 和 Pull Request。变更应保持界面与架构精简，使用文档化的 Windows API，不得加入修改全局代理、用户环境变量或强制管理 Codex 进程的行为。
+欢迎提交 Issue 和 Pull Request。变更应保持界面与架构精简，使用文档化的 Windows API；不得修改全局代理、直接操作注册表或强制管理 Codex 进程，兼容环境租约必须保持可恢复且时间有界。
 
 本项目采用 [MIT License](LICENSE)。

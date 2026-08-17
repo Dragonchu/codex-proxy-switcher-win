@@ -1,6 +1,3 @@
-using System.Diagnostics;
-using System.Net.Sockets;
-
 namespace CodexProxySwitcher;
 
 public enum LauncherStateKind { Ready, CodexRunning, ProxyUnavailable, CodexNotFound, LaunchFailed }
@@ -18,49 +15,59 @@ public sealed record LauncherState(LauncherStateKind Kind, CodexInstallation? In
 
 public sealed class LauncherService
 {
-    private readonly WindowsInterop windows = new();
+    private readonly WindowsInterop windows;
+    private readonly ICodexProcessProbe processProbe;
+    private readonly IProxyReachability proxyReachability;
+    private readonly ICompatibilityProxyInjection compatibilityInjection;
+    private readonly IDirectProcessLauncher directLauncher;
+
+    public LauncherService()
+    {
+        windows = new WindowsInterop();
+        processProbe = new CodexProcessProbe();
+        proxyReachability = new TcpProxyReachability();
+        compatibilityInjection = new CompatibilityProxyInjection(
+            new NamedCompatibilityLaunchLock(),
+            new CompatibilityEnvironmentLeaseFactory(new SystemEnvironmentAccessor(), new EnvironmentChangeBroadcaster()),
+            windows,
+            processProbe,
+            proxyReachability);
+        directLauncher = new DirectProcessLauncher();
+    }
+
+    public LauncherService(
+        WindowsInterop windows,
+        ICodexProcessProbe processProbe,
+        IProxyReachability proxyReachability,
+        ICompatibilityProxyInjection compatibilityInjection,
+        IDirectProcessLauncher directLauncher)
+    {
+        this.windows = windows;
+        this.processProbe = processProbe;
+        this.proxyReachability = proxyReachability;
+        this.compatibilityInjection = compatibilityInjection;
+        this.directLauncher = directLauncher;
+    }
 
     public async Task<LauncherState> GetStateAsync(ProxySettings settings)
     {
-        if (IsCodexRunning()) return new(LauncherStateKind.CodexRunning);
+        if (processProbe.IsCodexRunning()) return new(LauncherStateKind.CodexRunning);
         var discovery = windows.DiscoverCodex();
         if (discovery.Status == CodexDiscoveryStatus.NotFound) return LauncherState.NotFound(discovery.DiagnosticReason);
         var installation = discovery.Installation!;
-        if (!await IsProxyReachableAsync(settings.Uri)) return new(LauncherStateKind.ProxyUnavailable, installation);
+        if (!await proxyReachability.IsReachableAsync(settings.Uri)) return new(LauncherStateKind.ProxyUnavailable, installation);
         return new(LauncherStateKind.Ready, installation);
     }
 
-    public Task LaunchAsync(CodexInstallation installation, ProxySettings settings)
+    public async Task LaunchAsync(CodexInstallation installation, ProxySettings settings, CancellationToken cancellationToken = default)
     {
-        if (IsCodexRunning()) throw new InvalidOperationException("Codex is already running.");
+        if (processProbe.IsCodexRunning()) throw new InvalidOperationException("Codex is already running.");
+        if (!await proxyReachability.IsReachableAsync(settings.Uri, cancellationToken))
+            throw new InvalidOperationException($"Local proxy is unavailable: {settings.ProxyUrl}");
 
         if (installation.AppUserModelId is not null)
-        {
-            windows.ActivatePackagedApp(installation.AppUserModelId);
-        }
+            await compatibilityInjection.LaunchAsync(installation, settings, cancellationToken);
         else
-        {
-            var startInfo = new ProcessStartInfo(installation.ExecutablePath) { UseShellExecute = false };
-            startInfo.Environment["HTTP_PROXY"] = settings.ProxyUrl;
-            startInfo.Environment["HTTPS_PROXY"] = settings.ProxyUrl;
-            startInfo.Environment["ALL_PROXY"] = settings.ProxyUrl;
-            startInfo.Environment["NO_PROXY"] = "localhost,127.0.0.1,::1";
-            _ = Process.Start(startInfo) ?? throw new InvalidOperationException("Windows did not create the Codex process.");
-        }
-        return Task.CompletedTask;
-    }
-
-    private static bool IsCodexRunning() => Process.GetProcessesByName("Codex").Length > 0;
-
-    private static async Task<bool> IsProxyReachableAsync(Uri proxy)
-    {
-        try
-        {
-            using var client = new TcpClient();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await client.ConnectAsync(proxy.Host, proxy.Port, timeout.Token);
-            return true;
-        }
-        catch (Exception ex) when (ex is SocketException or OperationCanceledException) { return false; }
+            directLauncher.Launch(installation, settings);
     }
 }
